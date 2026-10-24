@@ -10,9 +10,13 @@ if [[ -n "${TOKEN}" ]]; then
   AUTH_HEADER=(-H "Authorization: Bearer ${TOKEN}")
 fi
 
-# composer config mutates composer.json; CI restores the backup after install
-# so `composer validate --strict` still matches the committed lock file.
+# composer config / path installs may mutate composer.json and composer.lock.
+# CI restores both backups after install so `composer validate --strict` matches
+# the committed files.
 cp composer.json composer.json.ci-bak
+if [[ -f composer.lock ]]; then
+  cp composer.lock composer.lock.ci-bak
+fi
 
 # package name -> source
 # source forms:

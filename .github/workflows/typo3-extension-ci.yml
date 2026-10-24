@@ -62,10 +62,13 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Restore composer.json after path-repo wiring
+      - name: Restore composer files after path-repo wiring
         run: |
           if [ -f composer.json.ci-bak ]; then
             mv composer.json.ci-bak composer.json
+          fi
+          if [ -f composer.lock.ci-bak ]; then
+            mv composer.lock.ci-bak composer.lock
           fi
 
       - name: Run all linters
@@ -116,10 +119,13 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Restore composer.json after path-repo wiring
+      - name: Restore composer files after path-repo wiring
         run: |
           if [ -f composer.json.ci-bak ]; then
             mv composer.json.ci-bak composer.json
+          fi
+          if [ -f composer.lock.ci-bak ]; then
+            mv composer.lock.ci-bak composer.lock
           fi
 
       - name: Run tests
