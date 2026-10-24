@@ -62,6 +62,12 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
+      - name: Restore composer.json after path-repo wiring
+        run: |
+          if [ -f composer.json.ci-bak ]; then
+            mv composer.json.ci-bak composer.json
+          fi
+
       - name: Run all linters
         run: composer lint:check
 
@@ -109,6 +115,12 @@ jobs:
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Restore composer.json after path-repo wiring
+        run: |
+          if [ -f composer.json.ci-bak ]; then
+            mv composer.json.ci-bak composer.json
+          fi
 
       - name: Run tests
         run: composer test

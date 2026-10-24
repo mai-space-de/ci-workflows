@@ -10,6 +10,10 @@ if [[ -n "${TOKEN}" ]]; then
   AUTH_HEADER=(-H "Authorization: Bearer ${TOKEN}")
 fi
 
+# composer config mutates composer.json; CI restores the backup after install
+# so `composer validate --strict` still matches the committed lock file.
+cp composer.json composer.json.ci-bak
+
 # package name -> source
 # source forms:
 #   github:org/repo
