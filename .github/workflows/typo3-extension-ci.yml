@@ -7,28 +7,56 @@ on:
         description: PHP version to use
         type: string
         default: '8.5'
+      extension-path:
+        description: Checkout path for the extension under test (siblings resolve as ../typo3-extension-*)
+        type: string
+        default: extension
+    secrets:
+      package-token:
+        description: Optional PAT/GitHub App token with read access to private mai-space-de package repos (and monorepo for in-tree packages like mai-turbo)
+        required: false
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.extension-path }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: ${{ inputs.extension-path }}
+
+      - name: Checkout CI helper scripts
+        uses: actions/checkout@v4
+        with:
+          repository: mai-space-de/ci-workflows
+          path: _ci-workflows
+          sparse-checkout: |
+            scripts
+          token: ${{ secrets.package-token || github.token }}
 
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ inputs.php-version }}
           tools: composer
           coverage: none
+          ini-values: memory_limit=1G
+
+      - name: Resolve maispace path dependencies
+        env:
+          GH_TOKEN: ${{ secrets.package-token || github.token }}
+        run: bash "${{ github.workspace }}/_ci-workflows/scripts/resolve-maispace-deps.sh"
 
       - name: Get Composer cache directory
         id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-composer-${{ hashFiles(format('{0}/composer.lock', inputs.extension-path)) }}
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
@@ -40,23 +68,43 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.extension-path }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: ${{ inputs.extension-path }}
+
+      - name: Checkout CI helper scripts
+        uses: actions/checkout@v4
+        with:
+          repository: mai-space-de/ci-workflows
+          path: _ci-workflows
+          sparse-checkout: |
+            scripts
+          token: ${{ secrets.package-token || github.token }}
 
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ inputs.php-version }}
           tools: composer
           coverage: none
+          ini-values: memory_limit=1G
+
+      - name: Resolve maispace path dependencies
+        env:
+          GH_TOKEN: ${{ secrets.package-token || github.token }}
+        run: bash "${{ github.workspace }}/_ci-workflows/scripts/resolve-maispace-deps.sh"
 
       - name: Get Composer cache directory
         id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-composer-${{ hashFiles(format('{0}/composer.lock', inputs.extension-path)) }}
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
