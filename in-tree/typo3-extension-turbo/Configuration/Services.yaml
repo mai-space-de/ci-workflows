@@ -1,0 +1,24 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  Maispace\MaiTurbo\:
+    resource: '../Classes/*'
+
+  Maispace\MaiTurbo\Middleware\ContextResolverMiddleware:
+    arguments:
+      $cache: '@cache.pages'
+
+  Maispace\MaiTurbo\ContentObject\MaiTurboContentObject:
+    tags:
+      - name: 'frontend.contentobject'
+        identifier: 'MAITURBO'
+
+  Maispace\MaiTurbo\EventListener\PageLinkModifier:
+    tags:
+      - name: 'event.listener'
+        method: 'modifyQueryParameters'
+        identifier: 'MaiTurboPageLinkModifier'
+        event: 'TYPO3\CMS\Frontend\Event\ModifyPageLinkConfigurationEvent'

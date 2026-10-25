@@ -158,6 +158,15 @@ ensure_monorepo() {
 link_monorepo_package() {
   local rel_path="$1"
   local dest="$2"
+  local bundled
+  # In-tree packages have no public repository. CI bundles the ones that other
+  # packages need (mai-turbo) inside ci-workflows, which this job already checked out.
+  bundled="$(cd .. && pwd)/_ci-workflows/in-tree/$(basename "${rel_path}")"
+  if [[ -f "${bundled}/composer.json" ]]; then
+    ln -sfn "${bundled}" "${dest}"
+    echo "Linked bundled ${rel_path} -> ${dest}"
+    return 0
+  fi
   local mono_root
   mono_root="$(cd .. && pwd)/_maispace-monorepo"
   ensure_monorepo "${mono_root}"

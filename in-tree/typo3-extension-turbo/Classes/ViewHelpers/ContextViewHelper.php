@@ -1,0 +1,64 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Maispace\MaiTurbo\ViewHelpers;
+
+use Maispace\MaiTurbo\Compatibility\ServerRequestFromRenderingContext;
+use Maispace\MaiTurbo\Context\ContextStack;
+use Maispace\MaiTurbo\Context\MaiTurboContextFactory;
+use TYPO3\CMS\Fluid\Core\Rendering\RenderingContext;
+use TYPO3Fluid\Fluid\Core\ViewHelper\AbstractViewHelper;
+
+class ContextViewHelper extends AbstractViewHelper
+{
+    public const CURRENT_CONTEXT = 'currentMaiTurboContext';
+
+    protected $escapeOutput = false;
+    protected $escapeChildren = true;
+
+    public function initializeArguments(): void
+    {
+        $this->registerArgument(
+            'typoScriptPath',
+            'string',
+            'TypoScript path used as rendering context',
+            true,
+        );
+        $this->registerArgument(
+            'recordUid',
+            'int',
+            'Uid of the record that will be passed to TypoScript. If not set, the current page uid will be used',
+        );
+        $this->registerArgument(
+            'tableName',
+            'string',
+            'Table name of the record that will be passed to TypoScript. If not set, "pages" will be used',
+            false,
+            'pages',
+        );
+        $this->registerArgument(
+            'pageUid',
+            'int',
+            'Uid of the page to which the context is bound. If not set, the current page uid is used',
+        );
+    }
+
+    public function render(): string
+    {
+        assert($this->renderingContext instanceof RenderingContext);
+        $request = (new ServerRequestFromRenderingContext($this->renderingContext))->getRequest();
+        $contextFactory = new MaiTurboContextFactory($request);
+        $context = $contextFactory->forPath(
+            renderingPath: $this->arguments['typoScriptPath'],
+            contextRecordId: $this->arguments['tableName'] . ':' . $this->arguments['recordUid'],
+            contextPageId: $this->arguments['pageUid'] ?? null,
+        );
+        $contextStack = new ContextStack($this->renderingContext->getViewHelperVariableContainer());
+        $contextStack->push($context);
+        $renderedChildren = $this->renderChildren();
+        $contextStack->pop();
+
+        return (string) $renderedChildren;
+    }
+}

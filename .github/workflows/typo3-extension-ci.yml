@@ -36,6 +36,7 @@ jobs:
           path: _ci-workflows
           sparse-checkout: |
             scripts
+            in-tree
           token: ${{ secrets.package-token || github.token }}
           persist-credentials: false
 
@@ -88,7 +89,17 @@ jobs:
           fi
 
       - name: Run all linters
-        run: composer lint:check
+        run: |
+          set +e
+          composer lint:check >"$RUNNER_TEMP/lint.log" 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            while IFS= read -r line; do
+              safe=$(printf '%s' "$line" | sed -E 's#x-access-token:[^@ ]+#x-access-token:***#g' | cut -c1-350)
+              echo "::error::$safe"
+            done < "$RUNNER_TEMP/lint.log"
+          fi
+          exit "$code"
 
   test:
     name: Test
@@ -109,6 +120,7 @@ jobs:
           path: _ci-workflows
           sparse-checkout: |
             scripts
+            in-tree
           token: ${{ secrets.package-token || github.token }}
           persist-credentials: false
 
@@ -161,4 +173,14 @@ jobs:
           fi
 
       - name: Run tests
-        run: composer test
+        run: |
+          set +e
+          composer test >"$RUNNER_TEMP/test.log" 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            while IFS= read -r line; do
+              safe=$(printf '%s' "$line" | sed -E 's#x-access-token:[^@ ]+#x-access-token:***#g' | cut -c1-350)
+              echo "::error::$safe"
+            done < "$RUNNER_TEMP/test.log"
+          fi
+          exit "$code"

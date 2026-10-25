@@ -1,0 +1,13 @@
+{
+  "name": "mai-turbo",
+  "private": true,
+  "version": "14.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build --emptyOutDir && cp public/_assets/vite/assets/mai-turbo/mai-turbo-*.js Resources/Public/JavaScript/mai-turbo.js"
+  },
+  "devDependencies": {
+    "@hotwired/turbo": "^8.0.13",
+    "vite": "^6.0.0"
+  }
+}

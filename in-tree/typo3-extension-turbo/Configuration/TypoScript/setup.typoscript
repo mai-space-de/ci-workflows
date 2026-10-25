@@ -1,0 +1,30 @@
+maiTurbo = PAGE
+maiTurbo {
+    typeNum = 2026072714
+    config {
+        debug = 0
+        disableAllHeaderCode = 1
+        disableCharsetHeader = 0
+    }
+    10 = MAITURBO
+    10.context = fromRequest
+}
+
+[request && request.getPageArguments()?.get('tx_maiturbo_document') === 'true']
+maiTurbo {
+    config {
+        disableAllHeaderCode = 0
+        disableCanonical = 1
+    }
+    meta.robots = noindex, follow
+}
+[global]
+
+page.includeJSLibs.maiTurbo = EXT:mai_turbo/Resources/Public/JavaScript/mai-turbo.js
+page.includeJSLibs.maiTurbo {
+    type = module
+    async = 1
+    defer = 1
+    disableCompression = 1
+    excludeFromConcatenation = 1
+}
