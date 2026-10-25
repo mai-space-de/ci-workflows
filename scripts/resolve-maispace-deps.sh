@@ -4,6 +4,9 @@
 # Env: GH_TOKEN (optional, for private GitHub repos)
 set -euo pipefail
 
+# actions/checkout stores a job token that is rejected for every other repo.
+git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+
 TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 AUTH_HEADER=()
 if [[ -n "${TOKEN}" ]]; then
@@ -75,12 +78,19 @@ list_maispace_from_composer() {
 clone_repo() {
   local url="$1"
   local dest="$2"
+  local branch="${3:-}"
   rm -rf "${dest}"
-  if git clone --depth 1 --branch main "${url}" "${dest}"; then
+  if [[ -n "${branch}" ]]; then
+    if git clone --depth 1 --branch "${branch}" "${url}" "${dest}"; then
+      return 0
+    fi
+    rm -rf "${dest}"
+  fi
+  if git clone --depth 1 "${url}" "${dest}"; then
     return 0
   fi
   rm -rf "${dest}"
-  git clone --depth 1 "${url}" "${dest}"
+  return 1
 }
 
 clone_github() {
@@ -90,14 +100,19 @@ clone_github() {
   echo "Checking out ${repo} -> ${dest}"
   # Anonymous first. A GITHUB_TOKEN from the calling repo is rejected for every
   # other repo, including public ones, and that 128 hides a working public clone.
-  if clone_repo "${public_url}" "${dest}"; then
+  if clone_repo "${public_url}" "${dest}" main; then
     return 0
   fi
   if [[ -z "${TOKEN}" ]]; then
+    echo "ERROR: could not clone ${repo}" >&2
     return 1
   fi
   echo "Public clone failed, retrying ${repo} with token"
-  clone_repo "https://x-access-token:${TOKEN}@github.com/${repo}.git" "${dest}"
+  if clone_repo "https://x-access-token:${TOKEN}@github.com/${repo}.git" "${dest}" main; then
+    return 0
+  fi
+  echo "ERROR: could not clone ${repo}" >&2
+  return 1
 }
 
 ensure_monorepo() {
@@ -114,9 +129,12 @@ ensure_monorepo() {
       return 1
     fi
     echo "Public monorepo clone failed, retrying with token"
-    git clone --depth 1 --branch development --filter=blob:none --sparse \
+    if ! git clone --depth 1 --branch development --filter=blob:none --sparse \
       "https://x-access-token:${TOKEN}@github.com/mai-space-de/www.bgm-pulheim.org.git" \
-      "${mono_root}"
+      "${mono_root}"; then
+      echo "ERROR: could not clone the monorepo" >&2
+      return 1
+    fi
   fi
 }
 
