@@ -4,8 +4,20 @@
 # Env: GH_TOKEN (optional, for private GitHub repos)
 set -euo pipefail
 
-# actions/checkout stores a job token that is rejected for every other repo.
-git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+# actions/checkout keeps a job token that GitHub rejects for every other repo,
+# including public ones. Override it on each git invocation instead of editing
+# the runner config (unsetting the wrong scope leaves the header in place).
+git_public() {
+  GIT_TERMINAL_PROMPT=0 command git -c http.https://github.com/.extraheader= "$@"
+}
+
+note_failure() {
+  local msg="$1"
+  msg="${msg//$'\n'/ }"
+  msg="$(printf '%s' "${msg}" | sed -E 's#x-access-token:[^@ ]+#x-access-token:***#g' | cut -c1-350)"
+  echo "::error::${msg}"
+  echo "ERROR: ${msg}" >&2
+}
 
 TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 AUTH_HEADER=()
@@ -79,17 +91,19 @@ clone_repo() {
   local url="$1"
   local dest="$2"
   local branch="${3:-}"
+  local err="" err2=""
   rm -rf "${dest}"
   if [[ -n "${branch}" ]]; then
-    if git clone --depth 1 --branch "${branch}" "${url}" "${dest}"; then
+    if err="$(git_public clone --depth 1 --branch "${branch}" "${url}" "${dest}" 2>&1)"; then
       return 0
     fi
     rm -rf "${dest}"
   fi
-  if git clone --depth 1 "${url}" "${dest}"; then
+  if err2="$(git_public clone --depth 1 "${url}" "${dest}" 2>&1)"; then
     return 0
   fi
   rm -rf "${dest}"
+  note_failure "clone failed for ${dest}: ${err} ${err2}"
   return 1
 }
 
@@ -123,16 +137,19 @@ ensure_monorepo() {
   local public_url="https://github.com/mai-space-de/www.bgm-pulheim.org.git"
   echo "Sparse-checking out monorepo branch development for in-tree packages"
   # `main` is an older tree and does not contain packages/typo3-extension-*.
-  if ! git clone --depth 1 --branch development --filter=blob:none --sparse "${public_url}" "${mono_root}"; then
+  local err=""
+  if ! err="$(git_public clone --depth 1 --branch development --filter=blob:none --sparse "${public_url}" "${mono_root}" 2>&1)"; then
+    note_failure "public monorepo clone failed: ${err}"
     rm -rf "${mono_root}"
     if [[ -z "${TOKEN}" ]]; then
       return 1
     fi
     echo "Public monorepo clone failed, retrying with token"
-    if ! git clone --depth 1 --branch development --filter=blob:none --sparse \
+    if ! err="$(git_public clone --depth 1 --branch development --filter=blob:none --sparse \
       "https://x-access-token:${TOKEN}@github.com/mai-space-de/www.bgm-pulheim.org.git" \
-      "${mono_root}"; then
-      echo "ERROR: could not clone the monorepo" >&2
+      "${mono_root}" 2>&1)"; then
+      note_failure "token monorepo clone failed: ${err}"
+      rm -rf "${mono_root}"
       return 1
     fi
   fi
@@ -144,12 +161,13 @@ link_monorepo_package() {
   local mono_root
   mono_root="$(cd .. && pwd)/_maispace-monorepo"
   ensure_monorepo "${mono_root}"
-  (
-    cd "${mono_root}"
-    git sparse-checkout add "${rel_path}"
-  )
-  if [[ ! -d "${mono_root}/${rel_path}" ]]; then
-    echo "ERROR: monorepo path missing: ${rel_path}" >&2
+  local err=""
+  if ! err="$(git_public -C "${mono_root}" sparse-checkout add "${rel_path}" 2>&1)"; then
+    note_failure "sparse-checkout ${rel_path} failed: ${err}"
+    exit 1
+  fi
+  if [[ ! -f "${mono_root}/${rel_path}/composer.json" ]]; then
+    note_failure "monorepo path has no composer.json: ${rel_path}"
     exit 1
   fi
   ln -sfn "${mono_root}/${rel_path}" "${dest}"

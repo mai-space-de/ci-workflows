@@ -49,7 +49,17 @@ jobs:
       - name: Resolve maispace path dependencies
         env:
           GH_TOKEN: ${{ secrets.package-token || github.token }}
-        run: bash "${{ github.workspace }}/_ci-workflows/scripts/resolve-maispace-deps.sh"
+        run: |
+          set +e
+          bash "${{ github.workspace }}/_ci-workflows/scripts/resolve-maispace-deps.sh" >"$RUNNER_TEMP/resolve.log" 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            while IFS= read -r line; do
+              safe=$(printf '%s' "$line" | sed -E 's#x-access-token:[^@ ]+#x-access-token:***#g' | cut -c1-350)
+              echo "::error::$safe"
+            done < "$RUNNER_TEMP/resolve.log"
+          fi
+          exit "$code"
 
       - name: Get Composer cache directory
         id: composer-cache
@@ -112,7 +122,17 @@ jobs:
       - name: Resolve maispace path dependencies
         env:
           GH_TOKEN: ${{ secrets.package-token || github.token }}
-        run: bash "${{ github.workspace }}/_ci-workflows/scripts/resolve-maispace-deps.sh"
+        run: |
+          set +e
+          bash "${{ github.workspace }}/_ci-workflows/scripts/resolve-maispace-deps.sh" >"$RUNNER_TEMP/resolve.log" 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            while IFS= read -r line; do
+              safe=$(printf '%s' "$line" | sed -E 's#x-access-token:[^@ ]+#x-access-token:***#g' | cut -c1-350)
+              echo "::error::$safe"
+            done < "$RUNNER_TEMP/resolve.log"
+          fi
+          exit "$code"
 
       - name: Get Composer cache directory
         id: composer-cache
