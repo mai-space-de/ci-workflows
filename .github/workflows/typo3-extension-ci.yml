@@ -69,6 +69,10 @@ jobs:
           fi
           if [ -f composer.lock.ci-bak ]; then
             mv composer.lock.ci-bak composer.lock
+          else
+            # composer install wrote a lock for the temporary path repos.
+            # Packages that do not commit a lock must not validate that file.
+            rm -f composer.lock
           fi
 
       - name: Run all linters
@@ -126,6 +130,10 @@ jobs:
           fi
           if [ -f composer.lock.ci-bak ]; then
             mv composer.lock.ci-bak composer.lock
+          else
+            # composer install wrote a lock for the temporary path repos.
+            # Packages that do not commit a lock must not validate that file.
+            rm -f composer.lock
           fi
 
       - name: Run tests

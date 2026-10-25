@@ -72,16 +72,32 @@ list_maispace_from_composer() {
   ' "$file"
 }
 
+clone_repo() {
+  local url="$1"
+  local dest="$2"
+  rm -rf "${dest}"
+  if git clone --depth 1 --branch main "${url}" "${dest}"; then
+    return 0
+  fi
+  rm -rf "${dest}"
+  git clone --depth 1 "${url}" "${dest}"
+}
+
 clone_github() {
   local repo="$1"
   local dest="$2"
-  local url="https://github.com/${repo}.git"
-  if [[ -n "${TOKEN}" ]]; then
-    url="https://x-access-token:${TOKEN}@github.com/${repo}.git"
-  fi
+  local public_url="https://github.com/${repo}.git"
   echo "Checking out ${repo} -> ${dest}"
-  git clone --depth 1 --branch main "${url}" "${dest}" 2>/dev/null \
-    || git clone --depth 1 "${url}" "${dest}"
+  # Anonymous first. A GITHUB_TOKEN from the calling repo is rejected for every
+  # other repo, including public ones, and that 128 hides a working public clone.
+  if clone_repo "${public_url}" "${dest}"; then
+    return 0
+  fi
+  if [[ -z "${TOKEN}" ]]; then
+    return 1
+  fi
+  echo "Public clone failed, retrying ${repo} with token"
+  clone_repo "https://x-access-token:${TOKEN}@github.com/${repo}.git" "${dest}"
 }
 
 ensure_monorepo() {
@@ -89,12 +105,18 @@ ensure_monorepo() {
   if [[ -d "${mono_root}/.git" ]]; then
     return 0
   fi
-  local url="https://github.com/mai-space-de/www.bgm-pulheim.org.git"
-  if [[ -n "${TOKEN}" ]]; then
-    url="https://x-access-token:${TOKEN}@github.com/mai-space-de/www.bgm-pulheim.org.git"
-  fi
+  local public_url="https://github.com/mai-space-de/www.bgm-pulheim.org.git"
   echo "Sparse-checking out monorepo for in-tree packages"
-  git clone --depth 1 --filter=blob:none --sparse "${url}" "${mono_root}"
+  if ! git clone --depth 1 --filter=blob:none --sparse "${public_url}" "${mono_root}"; then
+    rm -rf "${mono_root}"
+    if [[ -z "${TOKEN}" ]]; then
+      return 1
+    fi
+    echo "Public monorepo clone failed, retrying with token"
+    git clone --depth 1 --filter=blob:none --sparse \
+      "https://x-access-token:${TOKEN}@github.com/mai-space-de/www.bgm-pulheim.org.git" \
+      "${mono_root}"
+  fi
 }
 
 link_monorepo_package() {
