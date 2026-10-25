@@ -106,14 +106,15 @@ ensure_monorepo() {
     return 0
   fi
   local public_url="https://github.com/mai-space-de/www.bgm-pulheim.org.git"
-  echo "Sparse-checking out monorepo for in-tree packages"
-  if ! git clone --depth 1 --filter=blob:none --sparse "${public_url}" "${mono_root}"; then
+  echo "Sparse-checking out monorepo branch development for in-tree packages"
+  # `main` is an older tree and does not contain packages/typo3-extension-*.
+  if ! git clone --depth 1 --branch development --filter=blob:none --sparse "${public_url}" "${mono_root}"; then
     rm -rf "${mono_root}"
     if [[ -z "${TOKEN}" ]]; then
       return 1
     fi
     echo "Public monorepo clone failed, retrying with token"
-    git clone --depth 1 --filter=blob:none --sparse \
+    git clone --depth 1 --branch development --filter=blob:none --sparse \
       "https://x-access-token:${TOKEN}@github.com/mai-space-de/www.bgm-pulheim.org.git" \
       "${mono_root}"
   fi
